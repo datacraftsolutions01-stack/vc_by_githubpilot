@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface GenerateResponse {
   success: boolean;
@@ -17,11 +17,8 @@ export default function Home() {
   const [result, setResult] = useState<GenerateResponse | null>(null);
 
   const handleGenerate = async () => {
-    if (!deckText.trim() || !vcPersona.trim()) {
-      setResult({
-        success: false,
-        error: 'Please fill in both the pitch deck text and VC persona fields.'
-      });
+    if (!deckText.trim()) {
+      setResult({ success: false, error: 'Please paste your pitch deck text.' });
       return;
     }
 
@@ -31,22 +28,14 @@ export default function Home() {
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deckText: deckText.trim(),
-          vcPersona: vcPersona.trim(),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckText: deckText.trim(), vcPersona: vcPersona.trim() || undefined }),
       });
 
       const data = await response.json();
       setResult(data);
-    } catch {
-      setResult({
-        success: false,
-        error: 'Network error. Please try again.',
-      });
+    } catch (e) {
+      setResult({ success: false, error: 'Network error. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -54,24 +43,48 @@ export default function Home() {
 
   const gumroadLink = process.env.NEXT_PUBLIC_GUMROAD_LINK || '#';
 
+  const bullets: string[] = useMemo(() => {
+    if (!result?.summary) return [];
+    const raw = result.summary
+      .split(/\r?\n|•|\u2022|\-/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s.replace(/^[•\-\d\.)\s]+/, ''));
+    return raw.slice(0, 5);
+  }, [result?.summary]);
+
+  const investorAngle: string = useMemo(() => {
+    const src = (result?.brief || result?.summary || '').trim();
+    if (!src) return '';
+    const m = src.match(/[^.!?]+[.!?]/);
+    return (m ? m[0] : src.slice(0, 220)).trim();
+  }, [result?.brief, result?.summary]);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">VC Briefing</h1>
-          <p className="text-gray-600 mt-2">
-            Generate AI-powered venture capital briefs from your pitch deck
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+      {/* Hero */}
+      <header className="relative overflow-hidden">
+        <div className="absolute inset-0 blur-3xl opacity-30" aria-hidden>
+          <div className="bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-rose-400 w-[60rem] h-[60rem] rounded-full -translate-x-1/3 -translate-y-1/3" />
+        </div>
+        <div className="relative max-w-4xl mx-auto px-4 pt-14 pb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-rose-600">
+              Turn your deck into a VC-ready snapshot in &lt;30s.
+            </span>
+          </h1>
+          <p className="mt-3 text-slate-600 text-base sm:text-lg">
+            Paste your pitch deck below and get a free snapshot.
           </p>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+      {/* Main */}
+      <main className="max-w-4xl mx-auto px-4 pb-10">
+        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-6 sm:p-8 space-y-6">
           {/* Pitch Deck Input */}
           <div>
-            <label htmlFor="deckText" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="deckText" className="block text-sm font-medium text-slate-700 mb-2">
               Pitch Deck Text
             </label>
             <textarea
@@ -79,23 +92,23 @@ export default function Home() {
               value={deckText}
               onChange={(e) => setDeckText(e.target.value)}
               placeholder="Paste your pitch deck content here..."
-              className="w-full h-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+              className="w-full h-44 sm:h-52 px-3 py-2 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-vertical"
               disabled={isLoading}
             />
           </div>
 
-          {/* VC Persona Input */}
+          {/* VC Persona Input (optional) */}
           <div>
-            <label htmlFor="vcPersona" className="block text-sm font-medium text-gray-700 mb-2">
-              VC Persona
+            <label htmlFor="vcPersona" className="block text-sm font-medium text-slate-700 mb-2">
+              VC Persona <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <input
               id="vcPersona"
               type="text"
               value={vcPersona}
               onChange={(e) => setVcPersona(e.target.value)}
-              placeholder="e.g., experienced SaaS investor, early-stage tech VC, healthcare-focused partner"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="e.g., Sequoia, a16z"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               disabled={isLoading}
             />
           </div>
@@ -104,8 +117,8 @@ export default function Home() {
           <div className="flex justify-center">
             <button
               onClick={handleGenerate}
-              disabled={isLoading || !deckText.trim() || !vcPersona.trim()}
-              className="px-8 py-3 bg-blue-600 text-white font-medium rounded-md shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={isLoading || !deckText.trim()}
+              className="px-8 py-3 rounded-full font-semibold text-white shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-rose-600 hover:from-indigo-500 hover:via-fuchsia-500 hover:to-rose-500"
             >
               {isLoading ? (
                 <span className="flex items-center">
@@ -116,66 +129,62 @@ export default function Home() {
                   Generating...
                 </span>
               ) : (
-                'Generate VC Brief'
+                'Generate VC Snapshot'
               )}
             </button>
           </div>
 
           {/* Results */}
           {result && (
-            <div className="border-t pt-6">
+            <div className="border-t border-slate-100 pt-6">
               {result.success ? (
                 <div className="space-y-6">
-                  {/* Summary */}
-                  {result.summary && (
+                  {/* Snapshot Bullets */}
+                  {(bullets.length > 0) && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        Executive Summary
-                      </h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
-                          {result.summary}
-                        </pre>
-                      </div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-3">Snapshot</h3>
+                      <ul className="list-disc pl-5 space-y-2 text-slate-700">
+                        {bullets.map((b, i) => (
+                          <li key={i}>{b}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  {/* Brief */}
-                  {result.brief && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        VC Brief
-                      </h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
-                          {result.brief}
-                        </pre>
-                      </div>
+                  {/* Investor Angle */}
+                  {investorAngle && (
+                    <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700 mb-1">Investor Angle</div>
+                      <p className="text-slate-800">{investorAngle}</p>
                     </div>
+                  )}
+
+                  {/* Full Brief (optional readout) */}
+                  {result.brief && (
+                    <details className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+                      <summary className="cursor-pointer text-sm font-medium text-slate-800">View full VC brief</summary>
+                      <pre className="mt-3 whitespace-pre-wrap text-sm text-slate-700 font-sans">{result.brief}</pre>
+                    </details>
                   )}
 
                   {/* Provider Info */}
                   {result.provider && (
-                    <div className="text-xs text-gray-500 text-center">
+                    <div className="text-xs text-slate-500 text-center">
                       Generated using {result.provider === 'openai' ? 'OpenAI GPT-4o-mini' : 'Google Gemini 1.5 Flash'}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <div className="flex">
                     <div className="flex-shrink-0">
                       <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 10-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">
-                        Error
-                      </h3>
-                      <div className="mt-2 text-sm text-red-700">
-                        {result.error}
-                      </div>
+                      <h3 className="text-sm font-medium text-red-800">Error</h3>
+                      <div className="mt-2 text-sm text-red-700">{result.error}</div>
                     </div>
                   </div>
                 </div>
@@ -183,30 +192,30 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* CTA */}
+        <div className="text-center mt-8">
+          <a
+            href={gumroadLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-7 py-3 rounded-full font-semibold text-white shadow-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-500"
+          >
+            Unlock Full VC Brief – $79
+          </a>
+        </div>
       </main>
 
-      {/* Footer with Gumroad CTA */}
-      <footer className="bg-white border-t mt-12">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Want more advanced VC analysis tools?
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Get access to our premium suite of investment analysis tools
-            </p>
-            <a
-              href={gumroadLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-md shadow-sm hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-            >
-              <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-              </svg>
-              Get Premium Tools
-            </a>
-          </div>
+      {/* Trust Strip */}
+      <footer className="mt-12 border-t border-slate-200 bg-white/70 backdrop-blur">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <ul className="flex flex-col sm:flex-row items-center justify-center gap-3 text-slate-600 text-sm">
+            <li className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>No signup</li>
+            <li className="hidden sm:block text-slate-300">•</li>
+            <li className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500"></span>Your data is private</li>
+            <li className="hidden sm:block text-slate-300">•</li>
+            <li className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-rose-500"></span>Delivery within 24h</li>
+          </ul>
         </div>
       </footer>
     </div>
